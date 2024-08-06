@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from parametersv1 import *
 import os
 import additional_functions as af
-import standard_plots as sp
 
 def main():
     #------
@@ -16,7 +15,7 @@ def main():
     af.configure_plots(style='fancy')
     import_price = 'spot' # 'groupe_e' or 'bkw' or 'spot'
     tariff_name  = 'plus_tariff' # groupe_e: 'vario_plus', 'vario_grid', 'dt_plus' | bwk: 'green', 'blue', 'grey' | spot: 'spot' or 'plus_tariff'
-    thermal_inertia = 'low' # 'low', 'medium', or 'high' or 'different'
+    thermal_inertia = 'high' # 'low', 'medium', or 'high' or 'different'
     save_results = True
     plot_results = False
     save_images  = True

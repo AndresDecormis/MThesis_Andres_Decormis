@@ -7,7 +7,7 @@ import additional_functions as af
 # Configuration of this run
 af.configure_plots(style='fancy', colors='grayscale')
 # Name of the version
-version = "decentralisedv5-comparison"
+version = "decentralisedv5-comparison" 
 start_iteration = 10
 save_figures = True
 #------
