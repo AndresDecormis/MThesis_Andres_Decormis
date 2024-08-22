@@ -28,15 +28,30 @@ e_sto_max_tank      = 30                # Maximum buffer tank capacity [kWh (hea
 q_ts_in_max         = 0.25              # Maximum heat input to the tank [%ofkWh/h] - source: https://www.sciencedirect.com/science/article/pii/S0306261914007235?via%3Dihub
 q_ts_out_max        = 0.25              # Maximum heat output to the tank [%ofkWh/h] - source: https://www.sciencedirect.com/science/article/pii/S0306261914007235?via%3Dihub
 
+# --------- PWA Parameters ---------
 # Electrolyser                  # Source: T. Marti, M. Sulzer, ..., “Energieversorgung der schweiz bis 2050 zusammenfassung von ergebnissen und grundlagen,” 12 2022.
 l_el_max    = 20                # Maximum electrolyser capacity [kW] - https://sweet-cross.ch/data/energy-tech-parameters/2024-02-27/
+def electrolyser_function(x):
+    """
+    Function to calculate the electrolyser output based on the input capacity (normalised to 1)
+    """
+    return -0.066555  * (x**2) +  0.7099  * x + 0.005784314
+
 eff_el_h2   = 0.63              # Electrolyser conversion efficiency [-]
-eff_el_th   = 0.86              # Electrolyser thermal efficiency [-] from total heat released what fraction is recoverable
+eff_el_th   = 0.95              # Electrolyser thermal efficiency [-] from total heat released what fraction is recoverable
 
 # Fuel cell                     # Source: T. Marti, M. Sulzer, ..., “Energieversorgung der schweiz bis 2050 zusammenfassung von ergebnissen und grundlagen,” 12 2022.
 p_fc_max    = 20                # Maximum fuel cell capacity [kW] - https://sweet-cross.ch/data/energy-tech-parameters/2024-02-27/
+h2_fc_max   = 0.82              # Maximum hydrogen input capacity [kg/h] - https://sweet-cross.ch/data/energy-tech-parameters/2024-02-27/
+def fuel_cell_function(x):
+    """
+    Function to calculate the fuel cell output based on the input capacity (normalised to 1)
+    """
+    return -0.16555 * (x**2) + 0.6099 * x         # TODO: Update this function
+
 eff_fc_h2   = 0.44              # Fuel cell conversion efficiency [-]
-eff_fc_th   = 0.91              # Fuel cell thermal efficiency [-] from total heat released what fraction is recoverable
+eff_fc_th   = 0.95              # Fuel cell thermal efficiency [-] from total heat released what fraction is recoverable
+# --------- End of PWA Parameters -------
 
 # Compressor
 l_co_max    = 20                # Maximum compressor capacity [kW]

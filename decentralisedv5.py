@@ -615,7 +615,7 @@ def main():
             ## ----- Plot the convergence results (decentralised version only) -----
             fig, ax = plt.subplots()
             ax.plot(cost_storage[0:iter], label="Cost [CHF]")
-            ax.axhline(y = min_cost_centralised, color = 'r', linestyle = '.', label = "Centralised cost")
+            ax.axhline(y = min_cost_centralised, color = 'r', linestyle = 'dotted', label = "Centralised cost")
             ax.set(xlabel="Iteration", 
                 ylabel="Cost [CHF]", 
                 title="Convergence to Minimum Cost")
