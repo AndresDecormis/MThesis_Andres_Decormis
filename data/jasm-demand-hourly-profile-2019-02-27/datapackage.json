@@ -1,0 +1,467 @@
+{
+ "description": "Space heating, process heat, water heating, air conditioning and other electric appliances (e.g. refrigerators, ovens, information&communication technologies, washers and dryers,etc.) hourly profile by typical day and sector - Assumption in STEM model",
+ "version": "2019-02-27",
+  "category": "Demand hourly profiles",
+ "keywords": [
+              "demand",
+              "profile",
+              "monthly"
+ ],
+ "last_updated": "2019-02-27",
+ "license": "",
+ "title": "Demand hourly profile in STEM",
+ "contributors": [{"title": "Evangelos Panos", "email": "evangelos.panos@psi.ch"},{"title": "Kannan Ramachandran", "email": "kannan.ramachandran@psi.ch"}],
+  "resources": [
+    {
+      "name": "space-heating-demand-profile",
+      "path": "space-heating-demand-profile.csv",
+      "mediatype": "text/csv",
+      "tag":[
+              "demand",
+              "space heating",
+              "profile",
+              "typical days"
+      ],
+      "schema": {
+        "fields": [
+          {
+            "description": "Industry, residential (New/Existing Single/Multi Family Houses), services", 
+            "name": "Sector",
+            "type": "string",
+            "constraints": {"required": true}
+      },                 
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Hour of the typical day", 
+        "name": "Hour",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter working day (% of the total of the year)", 
+        "name": "WIN-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season working day (% of the total of the year)", 
+        "name": "INT-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer working day (% of the total of the year)", 
+        "name": "SUM-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter weekend (% of the total of the year)", 
+        "name": "WIN-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season weekend (% of the total of the year)", 
+        "name": "INT-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer weekend (% of the total of the year)", 
+        "name": "SUM-WE",
+        "type": "number"
+      }
+        ]
+      }
+    },
+  {
+      "name": "water-heating-demand-profile",
+      "path": "water-heating-demand-profile.csv",
+      "mediatype": "text/csv",
+      "tag":[
+              "demand",
+              "water heating",
+              "profile",
+              "typical days"
+      ],
+      "schema": {
+        "fields": [
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Industry, residential (New/Existing Single/Multi Family Houses), services", 
+        "name": "Sector",
+        "type": "string"
+      },                 
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Hour of the typical day", 
+        "name": "Hour",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter working day (% of the total of the year)", 
+        "name": "WIN-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season working day (% of the total of the year)", 
+        "name": "INT-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer working day (% of the total of the year)", 
+        "name": "SUM-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter weekend (% of the total of the year)", 
+        "name": "WIN-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season weekend (% of the total of the year)", 
+        "name": "INT-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer weekend (% of the total of the year)", 
+        "name": "SUM-WE",
+        "type": "number"
+      }
+        ]
+      }
+    },
+    {
+      "name": "process-heat-demand-profile",
+      "path": "process-heat-demand-profile.csv",
+      "mediatype": "text/csv",
+      "tag":[
+              "demand",
+              "process heat",
+              "profile",
+              "typical days"
+      ],
+      "schema": {
+        "fields": [
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Industry", 
+        "name": "Sector",
+        "type": "string"
+      },                 
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Hour of the typical day", 
+        "name": "Hour",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter working day (% of the total of the year)", 
+        "name": "WIN-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season working day (% of the total of the year)", 
+        "name": "INT-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer working day (% of the total of the year)", 
+        "name": "SUM-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter weekend (% of the total of the year)", 
+        "name": "WIN-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season weekend (% of the total of the year)", 
+        "name": "INT-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer weekend (% of the total of the year)", 
+        "name": "SUM-WE",
+        "type": "number"
+      }
+        ]
+      }
+    },
+    {
+      "name": "air-conditioning-demand-profile",
+      "path": "air-conditioning-demand-profile.csv",
+      "mediatype": "text/csv",
+      "tag":[
+              "demand",
+              "air conditioning",
+              "profile",
+              "typical days"
+      ],
+      "schema": {
+        "fields": [
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Industry and services, residential", 
+        "name": "Sector",
+        "type": "string"
+      },                 
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Hour of the typical day", 
+        "name": "Hour",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter working day (% of the total of the year)", 
+        "name": "WIN-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season working day (% of the total of the year)", 
+        "name": "INT-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer working day (% of the total of the year)", 
+        "name": "SUM-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter weekend (% of the total of the year)", 
+        "name": "WIN-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season weekend (% of the total of the year)", 
+        "name": "INT-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer weekend (% of the total of the year)", 
+        "name": "SUM-WE",
+        "type": "number"
+      }
+        ]
+      }
+    },
+    {
+      "name": "other-electric-appliances-demand-profile",
+      "path": "other-electric-appliances-demand-profile.csv",
+      "mediatype": "text/csv",
+      "tag":[
+              "demand",
+              "other appliances",
+              "profile",
+              "typical days"
+      ],
+      "schema": {
+        "fields": [
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Residential", 
+        "name": "Sector",
+        "type": "string"
+      },                 
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Hour of the typical day", 
+        "name": "Hour",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter working day (% of the total of the year)", 
+        "name": "WIN-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season working day (% of the total of the year)", 
+        "name": "INT-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer working day (% of the total of the year)", 
+        "name": "SUM-WK",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical winter weekend (% of the total of the year)", 
+        "name": "WIN-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical intermediate season weekend (% of the total of the year)", 
+        "name": "INT-WE",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Demand in a typical summer weekend (% of the total of the year)", 
+        "name": "SUM-WE",
+        "type": "number"
+      }
+        ]
+      }
+    },
+    {
+      "name": "lighting-demand-profile",
+      "path": "lighting-demand-profile.csv",
+      "mediatype": "text/csv",
+      "tag":[
+             "demand",
+             "lighting"
+      ],
+      "schema": {
+        "fields": [
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Hour of the day (% of the total of the year)", 
+        "name": "Hour",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Profile during the months in winter (% of the total of the year)", 
+        "name": "Winter (Jan)",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Profile during the months in summer (% of the total of the year)", 
+        "name": "Summer (July)",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Profile during the months in spring (% of the total of the year)", 
+        "name": "Spring (April)",
+        "type": "number"
+      },
+          {
+            "constraints": {
+              "required": true
+        },
+                    "description": "Profile during the months in autumn (% of the total of the year)", 
+        "name": "Autumn (Oct)",
+        "type": "number"
+      }
+        ]
+      }
+    }
+  ],
+  "sources": [
+    { "name": "Vögelin P., Panos E., Buffat R., Becutti G., Kannan R., et al. (2016). System modelling for assessing the potential of decentralised biomass-CHP plants to stabilise the Swiss electricity network with increased fluctuating renewable generation, Final report of the Swiss Federal Office of Energy. ", "web": "www.bfe.admin.ch/php/modules/enet/streamfile.php?file=000000011337.pdf"},
+    { "name": "R. Kannan and H. Turton (2014). Switzerland energy transition scenarios – Development and application of the Swiss TIMES Energy system Model (STEM), Final Report to Swiss Federal Office of Energy, Bern", "web": "https://www.psi.ch/eem/PublicationsTabelle/2014-STEM-PSI-Bericht-14-06.pdf"},
+    { "name": "Lighting: Stokes M., Rylatt M. and Lomas K. (2004) A simple model of domestic lighting demand, Energy and Buildings 36 (2) pp 103-116", "web": "https://www.dora.dmu.ac.uk/handle/2086/8963"}
+  ]
+}

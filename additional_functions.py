@@ -8,14 +8,25 @@ import seaborn as sns
 import os
 from cycler import cycler
 import numpy as np
+import parametersv2 as param
 
-def get_hydrogen_price():
+def get_hydrogen_price(scenario: str = 'current'):
     """
-    Function to get the hydrogen price - source: https://data.sccer-jasm.ch/import-prices/2020-08-01/
-    :return: float with the hydrogen price
+    Function to get the hydrogen price - 
+    sources: Brand C. The role and potential of hydrogen in Switzerland n.d.
+    Marius S, Boubat M, Upadhyay A, Geistlich P, Garrison J, Schaffner C, et al. The role of synthetic fuels in a net-zero emission electricity system in Switzerland 2024
+    :param scenario: str, 'current', 'future-low', 'future-high'
+    :return: numpy array with the hydrogen price
     """
-    hydrogen_market_price = 1.2        # Hydrogen market price [CHF/kgH2] - 3.3: source: Bernardino
-    return hydrogen_market_price       # Hydrogen price [CHF/kg]
+    # 3.3: source: https://data.sccer-jasm.ch/import-prices/2020-08-01/
+    # 10:source: H2districts – WP4
+    if scenario == 'current':
+        hydrogen_market_price = 10          # Hydrogen market price [CHF/kgH2]
+    elif scenario == 'future-low':
+        hydrogen_market_price = 2           # Hydrogen market price [CHF/kgH2]
+    elif scenario == 'future-high':
+        hydrogen_market_price = 6           # Hydrogen market price [CHF/kgH2] 
+    return hydrogen_market_price * np.ones(param.T)     
 
 def get_spot_prices():
     """
@@ -104,14 +115,23 @@ def get_iwb_tariff_data(tariff: str = 'power small'):
     high_tariff = high_tariff + high_network_tariff + high_tax
     low_tariff  = low_tariff + low_network_tariff + low_tax
 
-    df = pd.DataFrame()
-    # Making the dataframe be each hour of the year 2023
-    df["Timestep"] = pd.date_range(start='1/1/2023', end='1/1/2024', freq='H')
-    # Setting a high tariff from 6:00 to 20:00
+    # Time index for the year 2023 as df
+    date_range = pd.date_range(start='2023-01-01', end='2023-12-31 23:00:00', freq='H')
+    df = pd.DataFrame(index=date_range)
+
+    # Identify weekends
+    weekends = df.index.weekday >= 5
+
+    # Apply low tariff by default
     df["Electricity_priceCHF"] = low_tariff
-    df.loc[(df["Timestep"].dt.hour >= 6) & (df["Timestep"].dt.hour < 20), "Electricity_priceCHF"] = high_tariff
+
+    # Apply high tariff during weekdays from 6:00 to 20:00
+    df.loc[(~weekends) & (df.index.hour >= 6) & (df.index.hour < 20), "Electricity_priceCHF"] = high_tariff
+
+    # Convert the prices to a numpy array
     elec_price = df["Electricity_priceCHF"].to_numpy()
-    return elec_price[:-1]
+    
+    return elec_price
 
 
 def get_groupe_e_tariff_data(resolution: str = 'hourly', tariff: str = 'vario_plus'):
@@ -405,6 +425,19 @@ def get_solar_irradiance_data():
     """
     data = pd.read_csv("data/data_bernardino_2022.csv")                     # Import data
     return data["SolFlat"].to_numpy()                            # Solar irradiance [kWh/m^2]
+
+def get_heat_solar_gain_data():
+    """
+    Function to get the heat solar gain data - source: 
+    :return: numpy array with the heat solar gain data
+    """
+    solar_irradiance        = get_solar_irradiance_data()
+    area_irradiance         = param.area_irradiance
+    heat_input_conversion   = param.heat_input_conversion
+
+    heat_gain = solar_irradiance * area_irradiance * heat_input_conversion
+
+    return heat_gain 
 
 
 def get_PWA_lines(x_vals, y_vals):

@@ -13,6 +13,30 @@ import matplotlib.pyplot as plt
 from parametersv2 import *
 import os
 import additional_functions as af
+import time
+
+# Define the temperature constraints
+def T_max_allowed(T_max_ideal: int, alpha_consumer: int, T_amb: np.array, R_cons: float, q_gain: np.array) -> np.array:
+    """
+    Function to calculate the maximum allowed temperature for the consumer
+    """
+    # Define cost
+    cost_excess = 1e12 * np.ones(T) # Cost of excess temperature [€/°C]
+    # Define the decision variables
+    T_consumer = cp.Variable(T) # Consumer temperature [°C]
+    # Define the constraints
+    constraints_temperature = [T_consumer >= T_max_ideal,
+                               T_consumer[1:T] >= alpha_consumer * T_consumer[0:T-1] + (1-alpha_consumer) * (T_amb[0:T-1] + R_cons * (q_gain[0:T-1]))  ]
+    # Define the objective function
+    objective_temperature = cp.Minimize(cost_excess.T @ T_consumer)
+    # Create the problem
+    problem_temperature = cp.Problem(objective_temperature, constraints_temperature)
+    # Solve the problem
+    problem_temperature.solve(reoptimize=True,solver=cp.GUROBI, verbose=True)
+    # Obtain the relaxed maximum temperature
+    T_max_relaxed = T_consumer.value
+    return T_max_relaxed
+
 
 def main():
     # -----------------------------------------------------------------------------------------------
@@ -20,16 +44,19 @@ def main():
     af.configure_plots(style='fancy')
     #-------------------
     import_price            = 'iwb'             # 'groupe_e' or 'bkw' or 'spot' or 'iwb'
-    tariff_name             = 'power small'            # groupe_e: 'vario_plus', 'vario_grid', 'dt_plus' | bwk: 'green', 'blue', 'grey' | spot: 'spot' or 'plus_tariff' | iwb: 'power small', 'power small plus', 'power medium' or 'power medium plus'
-    thermal_inertia         = 'Medium'            # Houses thermal inertia: 'Low', 'Medium', 'High', or 'Different'
-    self_consumption_option = "All"             # Can the system consume its own electricity production? "None", "H2_Only", or "All"
-    electricity_consumption = "Applied"     # Do houses consume electricity? "Applied" or "Not Applied"
-    other_notes             = '-test'      # Notes to be added on the folder version name
-    temp_flexibility        = "Medium"             # Use temperature flexibility in the model: "Low", "Medium", "High" or "Different"
+    tariff_name             = 'power small'     # groupe_e: 'vario_plus', 'vario_grid', 'dt_plus' | bwk: 'green', 'blue', 'grey' | spot: 'spot' or 'plus_tariff' | iwb: 'power small', 'power small plus', 'power medium' or 'power medium plus'
+    thermal_inertia         = 'Medium'          # Houses thermal inertia: 'Low', 'Medium', 'High', or 'Different'
+    temp_flexibility        = "Medium"          # Use temperature flexibility in the model: "Low", "Medium", "High" or "Different"
+    h2_price_scenario       = 'current'         # Hydrogen price scenario: 'current', 'future-low', 'future-high'
+    other_notes             = '-TProfile-NoTES-WithH2-75HP<Normal-Tprof-NoTES>'                # Notes to be added on the folder version name
+    electricity_consumption = True              # Do we take end-electricity consumption into account?
     use_pv                  = True              # Use PV generation in the model
-    use_thermal_storage     = True              # Use thermal storage in the model
+    use_thermal_storage     = False              # Use thermal storage in the model
     use_battery_storage     = True              # Use battery storage in the model
-    number_breakpoints      = 2                 # Number of breakpoints for the PWA function (Minimum is 1)
+    use_electrolyser        = True              # Use electrolyser in the model
+    use_fuel_cell           = True              # Use fuel cell in the model
+    hydrogen_connection     = True              # Use hydrogen connection in the model
+    number_breakpoints      = 3                 # Number of breakpoints for the PWA function (Minimum is 0 - linear)
     #-------------------
     save_results            = True
     plot_results            = False
@@ -38,19 +65,23 @@ def main():
     name_version            = "centralisedv8" \
         f"-{import_price}_{tariff_name}" \
         f"-{thermal_inertia}_TI" \
-        f"-{self_consumption_option}_SC" \
+        f"-{temp_flexibility}_TF" \
         f"-{electricity_consumption}_EC" \
         f"-{use_pv}_PV" \
-        f"-{use_battery_storage}_BAT" \
-        f"-{use_thermal_storage}_TS" \
-        f"-{temp_flexibility}_TF" \
+        f"-{use_battery_storage}_BES" \
+        f"-{use_thermal_storage}_TES" \
+        f"-{use_electrolyser}_EL" \
+        f"-{use_fuel_cell}_FC" \
+        f"-{hydrogen_connection}_H2" \
+        f"-{h2_price_scenario}_H2Price" \
         f"-{number_breakpoints}_PWA" \
         f"{other_notes}" # Convention: TI: Thermal Inertia, SC: Self Consumption, EC: Electricity Consumption, PV: Photovoltaic, BAT: Battery, TS: Thermal Storage, TF: Temperature Flexibility
     name_version            = name_version.replace(" ", "_")
-    #-----------------------------------------------------------------------------------------------
-
-    # ---------------------------------------------------------
-    constant_slack_cost     = 1e0               # Cost of exceeding max temperature. At 1e-1 it exceeds the temperature at some points in winter. At 1e0 it does not.
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    constant_slack_cost     = 1e6               # [CHF/°C] Cost of exceeding max temperature. At 1e-1 it exceeds the temperature at some points in winter. At 1e0 it distorts heat value. At 1e6 it works well.
+    
+    
     #-------------------
     #-------------------
     # Plotting time frames
@@ -66,7 +97,7 @@ def main():
     ('2023-07-01', '2023-07-02'),  # Summer day
     ('2023-10-01', '2023-10-02')   # Autumn day
     ]
-    # ---------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     # Create results folders if they do not exist
     folder_version = f"results/{name_version}"
@@ -75,9 +106,9 @@ def main():
     else:
         print(f"{folder_version} folder already exists.")
 
-    # ---------------------------------------------------------
+    # --------------------------------------------------------------
     # Define the parameters according to configuration of this run
-    # ---------------------------------------------------------
+    # --------------------------------------------------------------
 
     # ------------ Import electricity export price data ------------
     p_el_export             = af.get_spot_prices()                          # Electricity export price [CHF/kWh]
@@ -97,12 +128,12 @@ def main():
     
     # ------------ Import other boundary conditions ------------
     T_amb                   = af.get_temperature_data()                     # Ambient temperature [°C]
-    price_h2                = af.get_hydrogen_price() * np.ones(T)          # Hydrogen price [CHF/kgH2] - 3.3: https://data.sccer-jasm.ch/import-prices/2020-08-01/
-    q_gain                  = np.zeros(T)                                   # Heat gain from sun irradiation [kW] - TODO: add real data based on solar irradiation
+    price_h2                = af.get_hydrogen_price(h2_price_scenario)      # Hydrogen price [CHF/kgH2]
+    q_gain                  = af.get_heat_solar_gain_data()                 # Heat gain from sun irradiation [kW] - TODO: add real data based on solar irradiation
     light_prof, e_app_prof  = af.get_electricity_profile_demand(resolution="hourly") # Demand profiles for lighting and electric appliances [% of year]
-    l_cons_demand           = n_consumers * (light_prof * lighting_yearly_demand + e_app_prof * elec_appliances_yearly_demand)   # Total electricity demand from consumers [kWh]
+    l_cons_demand_per_cons  = (light_prof * lighting_yearly_demand + e_app_prof * elec_appliances_yearly_demand)   # Total electricity demand from consumers [kWh]
+    # l_cons_demand           = n_consumers * (light_prof * lighting_yearly_demand + e_app_prof * elec_appliances_yearly_demand)   # Total electricity demand from consumers [kWh]
     solar_irradiance        = af.get_solar_irradiance_data()                # Solar irradiance [kWh/m^2]
-    pv_generation           = pv_area * pv_eff * solar_irradiance           # PV generation [kW]
     cost_slack              = constant_slack_cost * np.ones(T)              # Cost of temperature slack variable
 
     # ------------ Select the thermal inertia ------------
@@ -149,6 +180,11 @@ def main():
     else:
         raise ValueError("Error: Invalid type of temperature flexibility")
     
+
+    T_max_cons1_relaxed = T_max_allowed(T_cons1_max, alpha_cons1, T_amb,R_cons1,q_gain)
+    T_max_cons2_relaxed = T_max_allowed(T_cons2_max, alpha_cons2, T_amb,R_cons2,q_gain)
+    T_max_cons3_relaxed = T_max_allowed(T_cons3_max, alpha_cons3, T_amb,R_cons3,q_gain)
+    
     # ------------ Obtain the PWA functions for the electrolyser and fuel cell ------------
     x_values                        = np.linspace(0, 1, number_breakpoints+2)
     # ---- Electrolyser ----
@@ -165,6 +201,7 @@ def main():
     #--------------------------------------------------------------
 
     # Define the decision variables
+    p_grid      = cp.Variable(T) # Net grid electricity [kW]
     p_imp       = cp.Variable(T,nonneg=True) # Import electricity [kW]
     p_exp       = cp.Variable(T,nonneg=True) # Export electricity [kW]
     h2_imp      = cp.Variable(T,nonneg=True) # Import hydrogen [kg]
@@ -172,10 +209,9 @@ def main():
 
     # Define the dependant variables
     # ------ Power -------
-    l_heat_total= cp.Variable(T,nonneg=True) # total load for heat[kW]
     # Hydrogen
+    p_h2        = cp.Variable(T) # net power from hydrogen system [kW]
     l_h2        = cp.Variable(T,nonneg=True) # load of hydrogen system [kW]
-    l_h2_net    = cp.Variable(T,nonneg=True) # net load of hydrogen system [kW] : TODO: Do we need this?
     l_el        = cp.Variable(T,nonneg=True) # load of electrolyser [kW]
     l_co        = cp.Variable(T,nonneg=True) # load of compressor [kW]
     p_fc        = cp.Variable(T,nonneg=True) # power generated from fuel cell [kW]
@@ -183,8 +219,13 @@ def main():
     l_hp        = cp.Variable(T,nonneg=True) # load of heat pump [kW]
     # Battery
     e_bat       = cp.Variable(T,nonneg=True) # energy stored in battery [kWh]
+    p_bat_net   = cp.Variable(T) # net power from battery [kW]
     p_bat_ch    = cp.Variable(T,nonneg=True) # power charged to battery [kW]
     p_bat_dis   = cp.Variable(T,nonneg=True) # power discharged from battery [kW]
+    # Load consumer
+    l_cons1     = cp.Variable(T,nonneg=True) # load for electricity from consumer 1[kW]
+    l_cons2     = cp.Variable(T,nonneg=True) # load for electricity from consumer 2[kW]
+    l_cons3     = cp.Variable(T,nonneg=True) # load for electricity from consumer 3[kW]
 
     # ------- Heat -------
     # Hydrogen
@@ -197,7 +238,8 @@ def main():
     q_was_fc    = cp.Variable(T,nonneg=True) # heat wasted from fuel cell [kW]
     # Heat pump
     q_hp        = cp.Variable(T,nonneg=True) # heat used from heat pump [kW]
-    # Thermal storage - Buffer tank (HWTS)
+    # # Thermal storage (TES)
+    q_ts_net    = cp.Variable(T) # net heat from thermal storage [kW]
     q_ts_in     = cp.Variable(T,nonneg=True) # heat input to buffer tank [kW]
     q_ts_out    = cp.Variable(T,nonneg=True) # heat output from buffer tank [kW]
     e_ts_sto    = cp.Variable(T,nonneg=True) # heat stored in buffer tank [kWh]
@@ -221,17 +263,84 @@ def main():
 
     # ------- Slack variables -------
     # Temperature slack variables
-    T_cons1_slack = cp.Variable(T, nonneg=True)      # Slack variable for consumer 1 temperature
-    T_cons2_slack = cp.Variable(T, nonneg=True)      # Slack variable for consumer 2 temperature
-    T_cons3_slack = cp.Variable(T, nonneg=True)      # Slack variable for consumer 3 temperature
-    # Heat balance slack variable
-    q_slack       = cp.Variable(T, nonneg=True)      # Slack variable for heat balance
+    # T_cons1_slack = cp.Variable(T, nonneg=True)      # Slack variable for consumer 1 temperature
+    # T_cons2_slack = cp.Variable(T, nonneg=True)      # Slack variable for consumer 2 temperature
+    # T_cons3_slack = cp.Variable(T, nonneg=True)      # Slack variable for consumer 3 temperature
     
     # ------- Parameters -------
     # PV production
     p_pv        = cp.Parameter(T,nonneg=True) # power generated from PV: Parameter [kW]
-    # Electricity end-demand
-    l_cons_total= cp.Parameter(T,nonneg=True) # electricity demand from consumers: Parameter [kW]
+
+
+    # # Slack variables
+    # q_slack    = cp.Variable(T, nonneg=True) # Slack variable for heat balance [kW]
+
+    # -------------------------------------------------------
+    # ------- Conditional parameters --------
+    # -------------------------------------------------------
+    # Do we take electricity end-consumption into account?
+    if electricity_consumption:
+        l_each_cons  = l_cons_demand_per_cons     # Electricity end-demand from consumers
+    elif not electricity_consumption:
+        l_each_cons  = np.zeros(T)       # No electricity demand from consumers
+    else:
+        raise ValueError("Error: Invalid type of electricity consumption")
+    
+    # Do we use pv generation?
+    if use_pv:
+        pv_generation       = pv_area * pv_eff * solar_irradiance       # PV generation [kW]
+        p_pv.value          = pv_generation                             # Use PV generation
+    elif not use_pv:
+        pv_generation       = 0
+        p_pv.value          = np.zeros(T)                               # Do not use PV generation
+    else:
+        raise ValueError("Error: Invalid type of PV generation")
+
+    # Do we use thermal storage?
+    if use_thermal_storage:
+        e_sto_max_tank      = e_sto_max_tank_val                         # Use thermal storage from parameters
+    elif not use_thermal_storage:
+        e_sto_max_tank      = 0                                          # Overriding parameters value not use thermal storage
+    else:
+        raise ValueError("Error: Invalid type of thermal storage")
+    
+    # Do we use battery storage?
+    if use_battery_storage:
+        e_bat_cap           = e_bat_cap_val                              # Use battery storage from parameters
+    elif not use_battery_storage:
+        e_bat_cap           = 0                                          # Overriding parameters value not use battery storage
+    else:
+        raise ValueError("Error: Invalid type of battery storage")
+
+    # Do we use electrolyser?
+    if use_electrolyser:
+        l_el_max            = l_el_max_val                               # Use electrolyser from parameters
+        h2_prod_max         = h2_prod_max_val                            # Use electrolyser from parameters
+    elif not use_electrolyser:
+        l_el_max            = 0                                          # Overriding parameters value not use electrolyser
+        h2_prod_max         = 0                                          # Overriding parameters value not use electrolyser
+    else:
+        raise ValueError("Error: Invalid type of electrolyser")
+    
+    # Do we use fuel cell?
+    if use_fuel_cell:
+        p_fc_max            = p_fc_max_val                              # Use fuel cell from parameters
+        h2_fc_max           = h2_fc_max_val                             # Use fuel cell from parameters
+    elif not use_fuel_cell:
+        p_fc_max            = 0                                          # Overriding parameters value not use fuel cell
+        h2_fc_max           = 0                                          # Overriding parameters value not use fuel cell
+    else:
+        raise ValueError("Error: Invalid type of fuel cell")
+    
+    # Do we use hydrogen connection?
+    if hydrogen_connection:
+        h2_imp_max          = h2_imp_max_val                            # Use hydrogen connection from parameters
+        h2_exp_max          = h2_exp_max_val                            # Use hydrogen connection from parameters
+    elif not hydrogen_connection:
+        h2_imp_max          = 0                                          # Overriding parameters value not use hydrogen connection
+        h2_exp_max          = 0                                          # Overriding parameters value not use hydrogen connection
+    else:
+        raise ValueError("Error: Invalid type of hydrogen connection")
 
     # --------------------------------------------------------------
     #  Constraints 
@@ -239,38 +348,45 @@ def main():
 
     # ------ Global balance constraints -------
     # Heat balance constraint (constraint to derive heat value from)
-    heat_balance_network    =  [ q_h2 + q_hp + q_ts_out ==  q_cons1 + q_cons2 + q_cons3 + q_ts_in + q_slack]
+    # heat_balance_network            =  [q_gen_el - q_was_el + q_gen_fc - q_was_fc + q_hp ==  q_cons1 + q_cons2 + q_cons3]# + q_ts_net]# + q_slack]
+    # heat_balance_network            =  [q_hp ==  q_cons1 + q_cons2 + q_cons3]# + q_slack]# + q_ts_net]# + q_slack]
+    heat_balance_network            =  [q_h2 + q_hp - q_cons1 - q_cons2 - q_cons3 - q_ts_net == 0]# + q_slack]
 
-    # Define network balance constraints
-    network_balance         = [p_imp + p_pv + p_bat_dis + p_fc == p_exp + l_cons_total + l_heat_total,
-                               l_heat_total == q_h2 + q_hp,
+
+    # Electricity balance constraint (constraint to derive electricity value from)
+    electricity_balance_network     =  [p_pv == p_grid + p_bat_net + p_h2 + l_hp + l_cons1 + l_cons2 + l_cons3]
+
+    # Hydrogen balance constraint
+    h2_balance_network      = [p_h2         == l_h2 - p_fc,
                                l_h2         == l_el + l_co,
                                q_h2         == q_el + q_fc,]
-    # # Grid connections constraints -- Not used 
-    # grid_connection         = [p_imp        <= p_imp_max,
-    #                            p_exp        <= p_exp_max]
+    # Grid connections constraints 
+    grid_connection         = [p_imp        <= p_imp_max,
+                               p_exp        <= p_exp_max,
+                               p_grid       == p_exp - p_imp]
     # Hydrogen connection constraints
-    h2_connection           = [h2_imp        <= h2_imp_max,
-                               h2_exp        <= h2_exp_max]
+    h2_connection           = [h2_imp       <= h2_imp_max,
+                               h2_exp       <= h2_exp_max]
 
     # ------ Modelling components constraints -------
     # Electrolyser constraints
     electrolyser =    [l_el        <= l_el_max,
-                    #    h2_prod     == eff_el_h2 * l_el / HHV_H2,
+                       h2_prod     <= h2_prod_max,
                        q_gen_el    == (l_el - h2_prod * HHV_H2) * eff_el_th,
-                       q_gen_el    == q_was_el + q_el]
-    for i in range(number_breakpoints+1):
-        electrolyser += [h2_prod * HHV_H2 / l_el_max   <=  PWA_el_intercept[i] +  PWA_el_slope[i] * l_el / l_el_max]
+                       q_el        == q_gen_el - q_was_el]
+    if use_electrolyser:
+        for i in range(number_breakpoints+1):
+            electrolyser += [h2_prod * HHV_H2    <=  PWA_el_intercept[i] * l_el_max +  PWA_el_slope[i] * l_el]
     # Fuel cell constraints
     fuel_cell =        [p_fc       <= p_fc_max,
-                        # h2_fc      == p_fc / (eff_fc_h2 * HHV_H2),
+                        h2_fc      <= h2_fc_max,
                         q_gen_fc   == (h2_fc * HHV_H2 - p_fc) * eff_fc_th,
-                        q_gen_fc   == q_was_fc + q_fc]
-    for i in range(number_breakpoints+1):
-        fuel_cell += [p_fc  / (h2_fc_max * HHV_H2)   <=  PWA_fc_intercept[i] +  PWA_fc_slope[i] * h2_fc / h2_fc_max]
+                        q_fc       == q_gen_fc - q_was_fc]
+    if use_fuel_cell:
+        for i in range(number_breakpoints+1):
+            fuel_cell += [p_fc  / (HHV_H2)   <=  PWA_fc_intercept[i] * h2_fc_max +  PWA_fc_slope[i] * h2_fc]
     # Compressor constraints
     compressor =       [l_co       <= l_co_max,
-                        l_co       >= 0,
                         l_co       == k_co * h2_prod]
     # Hydrogen storage constraints
     h2_storage =   [h2_sto[0]      == h2_sto_max/2,
@@ -279,91 +395,89 @@ def main():
                     h2_sto[1:T]    == h2_sto[0:T-1] + h2_sto_eff * h2_prod[0:T-1] - (1/h2_sto_eff) * h2_fc[0:T-1] + h2_sto_eff * h2_imp[0:T-1] - (1/h2_sto_eff) * h2_exp[0:T-1]]
     # Heat pump constraints
     heat_pump =     [q_hp          <= q_hp_max,
-                     q_hp          >= 0,
                      q_hp          == COP_hp * l_hp]
-    # Buffer tank (thermal storage) constraints
-    buffer_tank =  [e_ts_sto[1:T]  == e_ts_sto[0:T-1] + stor_eff_tank * q_ts_in[0:T-1] - 1/stor_eff_tank * q_ts_out[0:T-1] - standby_loss_tank * e_ts_sto[0:T-1],
-                    e_ts_sto       <= e_sto_max_tank,
-                    e_ts_sto[0]    == e_sto_max_tank/2,
-                    e_ts_sto[T-1]  == e_sto_max_tank/2,
-                    q_ts_in        <= q_ts_in_max * e_sto_max_tank,
-                    q_ts_out       <= q_ts_out_max * e_sto_max_tank]
+    # Thermal energy storage constraints
+    thermal_storage =  [e_ts_sto       <= e_sto_max_tank,
+                        e_ts_sto[0]    == e_sto_max_tank/2,
+                        e_ts_sto[T-1]  == e_sto_max_tank/2,
+                        e_ts_sto[1:T]  == e_ts_sto[0:T-1] * (1 - standby_loss_tank) + stor_eff_tank * q_ts_in[0:T-1] - 1/stor_eff_tank * q_ts_out[0:T-1],
+                        q_ts_in        <= q_ts_in_max * e_sto_max_tank,
+                        q_ts_out       <= q_ts_out_max * e_sto_max_tank,
+                        q_ts_net       == q_ts_in - q_ts_out]
+    # thermal_storage = [e_ts_sto == 0,
+    #                    q_ts_in == 0,
+    #                    q_ts_out == 0,
+    #                    q_ts_net == 0]
     # Battery storage constraints
     battery_storage =  [e_bat[0]   == e_bat_cap/2,
                         e_bat[T-1] == e_bat_cap/2,
                         p_bat_ch   <= bat_max_ch * e_bat_cap,
                         p_bat_dis  <= bat_max_dis * e_bat_cap,
+                        p_bat_net  == p_bat_ch - p_bat_dis,
                         e_bat      <= e_bat_max * e_bat_cap,
                         e_bat      >= e_bat_min * e_bat_cap,
-                        e_bat[1:T] == e_bat[0:T-1] + eff_bat * p_bat_ch[0:T-1] - 1/eff_bat * p_bat_dis[0:T-1] - self_dis_bat * e_bat[0:T-1]]
+                        e_bat[1:T] == e_bat[0:T-1] * (1 - self_dis_bat) + bat_sto_eff * p_bat_ch[0:T-1] - 1/bat_sto_eff * p_bat_dis[0:T-1]]
 
     # -------  Consumer constraints -------
     # Heat consumer 1 heat constraints
-    consumer_1   = [T_cons1         >= T_cons1_min,
-                    T_cons1         <= T_cons1_max + T_cons1_slack,
+    consumer_1   = [l_cons1         == l_each_cons,
+                    T_cons1         >= T_cons1_min,
+                    # T_cons1         <= T_cons1_max + T_cons1_slack,
+                    T_cons1         <= T_max_cons1_relaxed,
                     T_cons1[0]      == (T_cons1_max + T_cons1_min) / 2,
                     T_cons1[1:T]    == alpha_cons1 * T_cons1[0:T-1] + (1-alpha_cons1) * (T_amb[0:T-1] + R_cons1 * (q_cons1[0:T-1] + q_gain[0:T-1]))]
     # Heat consumer 2 heat constraints
-    consumer_2   = [T_cons2         >= T_cons2_min,
-                    T_cons2         <= T_cons2_max + T_cons2_slack,
+    consumer_2   = [l_cons2         == l_each_cons,
+                    T_cons2         >= T_cons2_min,   
+                    # T_cons2         <= T_cons2_max + T_cons2_slack,
+                    T_cons2         <= T_max_cons2_relaxed,
                     T_cons2[0]      == (T_cons2_max + T_cons2_min) / 2,
                     T_cons2[1:T]    == alpha_cons2 * T_cons2[0:T-1] + (1-alpha_cons2) * (T_amb[0:T-1] + R_cons2 * (q_cons2[0:T-1] + q_gain[0:T-1]))]
     # Heat consumer 3 heat constraints
-    consumer_3   = [T_cons3         >= T_cons3_min,
-                    T_cons3         <= T_cons3_max + T_cons3_slack,
+    consumer_3   = [l_cons3         == l_each_cons,
+                    T_cons3         >= T_cons3_min,
+                    # T_cons3         <= T_cons3_max + T_cons3_slack,
+                    T_cons3         <= T_max_cons3_relaxed,
                     T_cons3[0]      == (T_cons3_max + T_cons3_min) / 2,
                     T_cons3[1:T]    == alpha_cons3 * T_cons3[0:T-1] + (1-alpha_cons3) * (T_amb[0:T-1] + R_cons3 * (q_cons3[0:T-1] + q_gain[0:T-1]))]
     
 
-    # ------- Conditional constraints and parameters --------
-    # Do we take electricity end-consumption into account?
-    if electricity_consumption == "Not Applied":
-        l_cons_total.value  = np.zeros(T)       # No electricity demand from consumers
-    elif electricity_consumption == "Applied":
-        l_cons_total.value  = l_cons_demand     # Electricity demand from consumers
-    else:
-        raise ValueError("Error: Invalid type of electricity consumption")
-    
-    # Do we use pv generation?
-    if use_pv:
-        p_pv.value          = pv_generation     # Use PV generation
-    elif not use_pv:
-        p_pv.value          = np.zeros(T)       # Do not use PV generation
-    else:
-        raise ValueError("Error: Invalid type of PV generation")
-
-    # Do we use thermal storage?
-    if use_thermal_storage:
-        pass
-    elif not use_thermal_storage:
-        buffer_tank         += [q_ts_out == 0] # Do not use thermal storage
-    else:
-        raise ValueError("Error: Invalid type of thermal storage")
-    
-    # Do we use battery storage?
-    if use_battery_storage:
-        pass
-    elif not use_battery_storage:
-        battery_storage += [p_bat_dis == 0] # Do not use battery storage, we do not constraints charging to avoid infesibility with minimum battery capacity
-    else:
-        raise ValueError("Error: Invalid type of battery storage")
-
     # Define the objective function
-    objective   = cp.Minimize(p_el_import.T @ p_imp - p_el_export.T @ p_exp + price_h2.T @ h2_imp - price_h2.T @ h2_exp + cost_slack.T @ (T_cons1_slack + T_cons2_slack + T_cons3_slack))
+    # objective   = cp.Minimize(p_el_import.T @ p_imp - p_el_export.T @ p_exp + price_h2.T @ h2_imp - price_h2.T @ h2_exp + cost_slack.T @ T_cons1_slack + cost_slack.T @ T_cons2_slack + cost_slack.T @ T_cons3_slack)
+    objective   = cp.Minimize(p_el_import.T @ p_imp - p_el_export.T @ p_exp + price_h2.T @ h2_imp - price_h2.T @ h2_exp)# + cost_slack.T @ T_cons1_slack + cost_slack.T @ T_cons2_slack + cost_slack.T @ T_cons3_slack)
+    
+    # Defining an objective function with a quadratic term for a unique solution 
+    # cost_quad   = 1e-6  # Cost of quadratic term
+    # objective   = cp.Minimize(cost_quad * cp.sum_squares(q_ts_in) +  p_el_import.T @ p_imp - p_el_export.T @ p_exp + price_h2.T @ h2_imp - price_h2.T @ h2_exp + cost_slack.T @ T_cons1_slack + cost_slack.T @ T_cons2_slack + cost_slack.T @ T_cons3_slack)
+
     # Define the constraints
-    constraints = heat_balance_network + network_balance + h2_connection + electrolyser + fuel_cell + compressor + h2_storage + heat_pump + buffer_tank + battery_storage + consumer_1 + consumer_2 + consumer_3
+    constraints = heat_balance_network + electricity_balance_network + h2_balance_network + grid_connection + h2_connection + electrolyser + fuel_cell + compressor + h2_storage + heat_pump + thermal_storage + battery_storage + consumer_1 + consumer_2 + consumer_3
     # Create the problem
     problem     = cp.Problem(objective, constraints)
+
+    # ---------------------------------------------------------
+    st = time.process_time()    # get the start time
+    # ---------------------------------------------------------
     # Solve the problem
     problem.solve(reoptimize=True,solver=cp.GUROBI, verbose=True, qcp=True)
+    # ---------------------------------------------------------
+    et = time.process_time()    # get the end time
+    res = et - st               # get execution time
+    print('CPU Execution time:', res, 'seconds')
+    # Save computation time in a text file
+    with open(f'{folder_version}/computation_time.txt', 'w') as f:
+        f.write(f'CPU Execution time: {res} seconds')
+    # --------------------------------------------------------- 
 
     # --------------------------------------------------------------
     # Processing of results
     # --------------------------------------------------------------
     # ------ Main results -------
-    total_cost              = problem.value - cost_slack @ (T_cons1_slack.value + T_cons2_slack.value + T_cons3_slack.value)  # scalar 
+    total_cost              = problem.value# - (cost_slack.T @ T_cons1_slack.value + cost_slack.T @ T_cons2_slack.value + cost_slack.T @ T_cons3_slack.value)  # scalar 
     heat_value              = - constraints[0].dual_value       # vector
+    elec_value              = - constraints[1].dual_value       # vector
     average_heat_value      = np.average(heat_value)            # scalar
+    average_elec_value      = np.average(elec_value)            # scalar
     total_expenses          = p_el_import.T @ p_imp.value + price_h2.T @ h2_imp.value # scalar
     total_revenue           = p_el_export.T @ p_exp.value + price_h2.T @ h2_exp.value # scalar
 
@@ -375,49 +489,54 @@ def main():
     hydrogen_expenses       = price_h2.T @ h2_imp.value   # scalar
     hydrogen_revenue        = price_h2.T @ h2_exp.value   # scalar
     # H2 system
-    expenses_h2_system      = p_el_import.T @ l_h2.value + hydrogen_expenses  # scalar # TODO: This overestimates the electricity import
-    revenue_h2_system       = p_el_export.T @ p_exp.value + hydrogen_revenue  # scalar
+    expenses_h2_system      = elec_value.T @ l_h2.value + hydrogen_expenses  # scalar 
+    revenue_h2_system       = elec_value.T @ p_fc.value + hydrogen_revenue   # scalar 
     # Heat pump
-    expenses_hp_system      = p_el_import.T @ l_hp.value   # scalar # TODO: This overestimates the electricity import
+    expenses_hp_system      = elec_value.T @ l_hp.value   # scalar 
     # PV system
-    revenue_pv_system       = p_el_export.T @ p_pv.value   # scalar
+    revenue_pv_system       = elec_value.T @ p_pv.value   # scalar
     # Consumers
     heat_cost_cons1         = heat_value.T @ q_cons1.value # scalar
     heat_cost_cons2         = heat_value.T @ q_cons2.value # scalar
     heat_cost_cons3         = heat_value.T @ q_cons3.value # scalar
     heat_cost_cons_total    = heat_cost_cons1 + heat_cost_cons2 + heat_cost_cons3 # scalar
-    electricity_end_expenses= p_el_import.T @ l_cons_total.value # scalar
-    electricity_f_heat_expenses = p_el_import.T @ l_heat_total.value # scalar
+    electricity_end_expenses= elec_value.T @ (l_cons1.value + l_cons2.value + l_cons3.value) # scalar
+    electricity_f_heat_expenses= elec_value.T @ (l_h2.value +l_hp.value) # scalar
 
     # ------ Heat results -------
     # General
-    heat_consumption    = q_cons1.value + q_cons2.value + q_cons3.value + q_ts_in.value     # vector
+    heat_consumption    = q_cons1.value + q_cons2.value + q_cons3.value #+ q_ts_in.value     # vector
     heat_demand         = q_cons1.value + q_cons2.value + q_cons3.value                     # vector
-    heat_supply         = q_h2.value + q_hp.value + q_ts_out.value                          # vector
-    heat_waste          = q_was_el.value + q_was_fc.value                                   # vector
-    heat_waste_el       = q_was_el.value                                                    # vector
-    heat_waste_fc       = q_was_fc.value                                                    # vector
-    heat_slack          = q_slack.value                                                     # vector
+    heat_supply         = q_h2.value + q_hp.value #+ q_ts_out.value                          # vector
+    heat_solar_gain     = q_gain * n_consumers                                              # vector
     # Hydrogen
     heat_h2_used        = q_h2.value        # vector
     heat_el_used        = q_el.value        # vector
     heat_fc_used        = q_fc.value        # vector
+    heat_el_gen         = q_gen_el.value    # vector
+    heat_fc_gen         = q_gen_fc.value    # vector
+    heat_waste          = q_was_el.value + q_was_fc.value                                   # vector
+    heat_waste_el       = q_was_el.value                                                    # vector
+    heat_waste_fc       = q_was_fc.value                                                    # vector
     # Heat pump
     heat_hp_used        = q_hp.value        # vector
     # Thermal storage
     heat_ts_used        = q_ts_out.value    # vector
     heat_ts_input       = q_ts_in.value     # vector
     energy_ts_stored    = e_ts_sto.value    # vector
-    total_heat_consumption= np.sum(heat_consumption)  # scalar
+    # Totals
+    total_heat_consumption= np.sum(heat_consumption)# scalar
     total_heat_demand   = np.sum(heat_demand)       # scalar
     total_heat_supply   = np.sum(heat_supply)       # scalar
+    total_heat_solar_gain= np.sum(heat_solar_gain)  # scalar
     total_heat_waste    = np.sum(heat_waste)        # scalar
     total_heat_waste_el = np.sum(heat_waste_el)     # scalar
     total_heat_waste_fc = np.sum(heat_waste_fc)     # scalar
-    total_heat_slack    = np.sum(heat_slack)        # scalar
     total_heat_h2_used  = np.sum(heat_h2_used)      # scalar
     total_heat_el_used  = np.sum(heat_el_used)      # scalar
     total_heat_fc_used  = np.sum(heat_fc_used)      # scalar
+    total_heat_el_gen   = np.sum(heat_el_gen)       # scalar
+    total_heat_fc_gen   = np.sum(heat_fc_gen)       # scalar
     total_heat_hp_used  = np.sum(heat_hp_used)      # scalar
     total_heat_ts_used  = np.sum(heat_ts_used)      # scalar
     total_heat_ts_input = np.sum(heat_ts_input)     # scalar
@@ -425,10 +544,10 @@ def main():
 
     # ------ Electricity results -------
     # General
-    electricity_for_heat_demand = l_heat_total.value        # vector
-    electricity_end_demand      = l_cons_total.value        # vector
+    electricity_for_heat_demand = l_h2.value +l_hp.value        # vector
+    electricity_end_demand      = l_cons1.value + l_cons2.value + l_cons3.value        # vector
     electricity_total_demand    = electricity_for_heat_demand + electricity_end_demand # vector
-    electricity_generated       = p_fc.value + p_pv.value   # vector # TODO: could add here PV generation
+    electricity_generated       = p_fc.value + p_pv.value   # vector # TODO: could add here Battery
     electricity_imported        = p_imp.value               # vector
     electricity_exported        = p_exp.value               # vector
     electricity_net_imported    = electricity_imported - electricity_exported # vector
@@ -503,56 +622,59 @@ def main():
     rate_temp_cons2             = np.diff(temp_cons2, prepend=temp_cons2[0])      # vector
     rate_temp_cons3             = np.diff(temp_cons3, prepend=temp_cons3[0])      # vector
     # -------- Average rates of absolute values
-    avg_rate_elec_f_heat_demand = np.average(abs(rate_elec_f_heat_demand)) # scalar
-    avg_rate_elec_end_demand    = np.average(abs(rate_elec_end_demand)) # scalar
-    avg_rate_elec_total_demand  = np.average(abs(rate_elec_total_demand)) # scalar
-    avg_rate_elec_generated     = np.average(abs(rate_elec_generated)) # scalar
-    avg_rate_elec_imported      = np.average(abs(rate_elec_imported)) # scalar
-    avg_rate_elec_exported      = np.average(abs(rate_elec_exported)) # scalar
-    avg_rate_heat_demand        = np.average(abs(rate_heat_demand)) # scalar
-    avg_rate_heat_supply        = np.average(abs(rate_heat_supply)) # scalar
-    avg_rate_temp_cons1         = np.average(abs(rate_temp_cons1))  # scalar
-    avg_rate_temp_cons2         = np.average(abs(rate_temp_cons2))  # scalar
-    avg_rate_temp_cons3         = np.average(abs(rate_temp_cons3))  # scalar
+    avg_rate_elec_f_heat_demand = np.average(abs(rate_elec_f_heat_demand))  # scalar
+    avg_rate_elec_end_demand    = np.average(abs(rate_elec_end_demand))     # scalar
+    avg_rate_elec_total_demand  = np.average(abs(rate_elec_total_demand))   # scalar
+    avg_rate_elec_generated     = np.average(abs(rate_elec_generated))      # scalar
+    avg_rate_elec_imported      = np.average(abs(rate_elec_imported))       # scalar
+    avg_rate_elec_exported      = np.average(abs(rate_elec_exported))       # scalar
+    avg_rate_heat_demand        = np.average(abs(rate_heat_demand))         # scalar
+    avg_rate_heat_supply        = np.average(abs(rate_heat_supply))         # scalar
+    avg_rate_temp_cons1         = np.average(abs(rate_temp_cons1))          # scalar
+    avg_rate_temp_cons2         = np.average(abs(rate_temp_cons2))          # scalar
+    avg_rate_temp_cons3         = np.average(abs(rate_temp_cons3))          # scalar
     # -------- Average rates of only ramp up values
-    avg_rate_elec_f_heat_demand_ramp_up = np.average(rate_elec_f_heat_demand[rate_elec_f_heat_demand > 0]) # scalar
-    avg_rate_elec_end_demand_ramp_up    = np.average(rate_elec_end_demand[rate_elec_end_demand > 0]) # scalar
-    avg_rate_elec_total_demand_ramp_up  = np.average(rate_elec_total_demand[rate_elec_total_demand > 0]) # scalar
-    avg_rate_elec_generated_ramp_up     = np.average(rate_elec_generated[rate_elec_generated > 0]) # scalar
-    avg_rate_elec_imported_ramp_up      = np.average(rate_elec_imported[rate_elec_imported > 0]) # scalar
-    avg_rate_elec_exported_ramp_up      = np.average(rate_elec_exported[rate_elec_exported > 0]) # scalar
-    avg_rate_heat_demand_ramp_up        = np.average(rate_heat_demand[rate_heat_demand > 0]) # scalar
-    avg_rate_heat_supply_ramp_up        = np.average(rate_heat_supply[rate_heat_supply > 0]) # scalar
-    avg_rate_temp_cons1_ramp_up         = np.average(rate_temp_cons1[rate_temp_cons1 > 0])  # scalar
-    avg_rate_temp_cons2_ramp_up         = np.average(rate_temp_cons2[rate_temp_cons2 > 0])  # scalar
-    avg_rate_temp_cons3_ramp_up         = np.average(rate_temp_cons3[rate_temp_cons3 > 0])  # scalar
+    avg_rate_elec_f_heat_demand_ramp_up = np.average(rate_elec_f_heat_demand[rate_elec_f_heat_demand > 0])  # scalar
+    avg_rate_elec_end_demand_ramp_up    = np.average(rate_elec_end_demand[rate_elec_end_demand > 0])        # scalar
+    avg_rate_elec_total_demand_ramp_up  = np.average(rate_elec_total_demand[rate_elec_total_demand > 0])    # scalar
+    avg_rate_elec_generated_ramp_up     = np.average(rate_elec_generated[rate_elec_generated > 0])          # scalar
+    avg_rate_elec_imported_ramp_up      = np.average(rate_elec_imported[rate_elec_imported > 0])            # scalar
+    avg_rate_elec_exported_ramp_up      = np.average(rate_elec_exported[rate_elec_exported > 0])            # scalar
+    avg_rate_heat_demand_ramp_up        = np.average(rate_heat_demand[rate_heat_demand > 0])                # scalar
+    avg_rate_heat_supply_ramp_up        = np.average(rate_heat_supply[rate_heat_supply > 0])                # scalar
+    avg_rate_temp_cons1_ramp_up         = np.average(rate_temp_cons1[rate_temp_cons1 > 0])                  # scalar
+    avg_rate_temp_cons2_ramp_up         = np.average(rate_temp_cons2[rate_temp_cons2 > 0])                  # scalar
+    avg_rate_temp_cons3_ramp_up         = np.average(rate_temp_cons3[rate_temp_cons3 > 0])                  # scalar
     # -------- Maximum rates
-    max_rate_elec_f_heat_demand = np.max(abs(rate_elec_f_heat_demand)) # scalar
-    max_rate_elec_end_demand    = np.max(abs(rate_elec_end_demand)) # scalar
-    max_rate_elec_total_demand  = np.max(abs(rate_elec_total_demand)) # scalar
-    max_rate_elec_generated     = np.max(abs(rate_elec_generated)) # scalar
-    max_rate_elec_imported      = np.max(abs(rate_elec_imported)) # scalar
-    max_rate_elec_exported      = np.max(abs(rate_elec_exported)) # scalar
-    max_rate_heat_demand        = np.max(abs(rate_heat_demand)) # scalar
-    max_rate_heat_supply        = np.max(abs(rate_heat_supply)) # scalar
-    max_rate_temp_cons1         = np.max(abs(rate_temp_cons1))  # scalar
-    max_rate_temp_cons2         = np.max(abs(rate_temp_cons2))  # scalar
-    max_rate_temp_cons3         = np.max(abs(rate_temp_cons3))  # scalar
+    max_rate_elec_f_heat_demand = np.max(abs(rate_elec_f_heat_demand))  # scalar
+    max_rate_elec_end_demand    = np.max(abs(rate_elec_end_demand))     # scalar
+    max_rate_elec_total_demand  = np.max(abs(rate_elec_total_demand))   # scalar
+    max_rate_elec_generated     = np.max(abs(rate_elec_generated))      # scalar
+    max_rate_elec_imported      = np.max(abs(rate_elec_imported))       # scalar
+    max_rate_elec_exported      = np.max(abs(rate_elec_exported))       # scalar
+    max_rate_heat_demand        = np.max(abs(rate_heat_demand))         # scalar
+    max_rate_heat_supply        = np.max(abs(rate_heat_supply))         # scalar
+    max_rate_temp_cons1         = np.max(abs(rate_temp_cons1))          # scalar
+    max_rate_temp_cons2         = np.max(abs(rate_temp_cons2))          # scalar
+    max_rate_temp_cons3         = np.max(abs(rate_temp_cons3))          # scalar
 
-
-
-    # Print main results
+    # ------- Print main results -------
     print("Optimal system cost: ",          total_cost)
     print("Total expenses: ",               total_expenses)
     print("Total revenue: ",                total_revenue)
-    print("Average heat cost: ",            average_heat_value)
+    print("Average heat value: ",           average_heat_value)
+    print("Average electricity value: ",    average_elec_value)
     print("Total heat demand:" ,            total_heat_demand)
+    print("Average consumer heat demand:" , total_heat_demand/n_consumers)
     print("Total electricity demanded: ",   total_electricity_total_demand)
     print("Total electricity produced: ",   total_electricity_generated)
 
     # For more detailed diagnostics:
     print(problem.status)  # Check the status of the solution
 
+    # --------------------------------------------------------------
+    # Save results
+    # --------------------------------------------------------------
     if save_results:
         # Naming the folder:
         folder_path = folder_version
@@ -560,6 +682,7 @@ def main():
         scalar_results = {
             'total_cost':                       (total_cost, 'CHF'),
             'average_heat_value':               (average_heat_value, 'CHF/kWh'),
+            'average_elec_value':               (average_elec_value, 'CHF/kWh'),
             'total_expenses':                   (total_expenses, 'CHF'),
             'total_revenue':                    (total_revenue, 'CHF'),
             'electricity_expenses':             (electricity_expenses, 'CHF'),
@@ -579,13 +702,15 @@ def main():
             'total_heat_consumption':           (total_heat_consumption, 'kWh'),
             'total_heat_demand':                (total_heat_demand, 'kWh'),
             'total_heat_supply':                (total_heat_supply, 'kWh'),
+            'total_heat_solar_gain':            (total_heat_solar_gain, 'kWh'),
             'total_heat_waste':                 (total_heat_waste, 'kWh'),
             'total_heat_waste_el':              (total_heat_waste_el, 'kWh'),
             'total_heat_waste_fc':              (total_heat_waste_fc, 'kWh'),
-            'total_heat_slack':                 (total_heat_slack, 'kWh'),
             'total_heat_h2_used':               (total_heat_h2_used, 'kWh'),
             'total_heat_el_used':               (total_heat_el_used, 'kWh'),
             'total_heat_fc_used':               (total_heat_fc_used, 'kWh'),
+            'total_heat_el_gen':                (total_heat_el_gen, 'kWh'),
+            'total_heat_fc_gen':                (total_heat_fc_gen, 'kWh'),
             'total_heat_hp_used':               (total_heat_hp_used, 'kWh'),
             'total_heat_ts_used':               (total_heat_ts_used, 'kWh'),
             'total_heat_ts_input':              (total_heat_ts_input, 'kWh'),
@@ -665,9 +790,10 @@ def main():
                                 "PriceExportElectricity":       p_el_export,
                                 "PriceHydrogen":                price_h2,
                                 "TemperatureAmbient":           T_amb,
-                                "HeatGain":                     q_gain,
+                                "HeatGain":                     heat_solar_gain,
                                 "ElecEndDemand":                electricity_end_demand,
                                 "HeatValue":                    heat_value,
+                                "ElecValue":                    elec_value,
                                 "HeatConsumption":              heat_consumption,
                                 "HeatDemand":                   heat_demand,
                                 "HeatSupply":                   heat_supply,
@@ -678,16 +804,15 @@ def main():
                                 "HeatWaste":                    heat_waste,
                                 "HeatWasteEl":                  heat_waste_el,
                                 "HeatWasteFC":                  heat_waste_fc,
-                                "HeatSlack":                    heat_slack,
                                 "HeatH2":                       heat_h2_used,     
                                 "HeatEl":                       heat_el_used,
                                 "HeatFC":                       heat_fc_used,
+                                "HeatElGen":                    heat_el_gen,
+                                "HeatFCGen":                    heat_fc_gen,
                                 "HeatHP":                       heat_hp_used,
                                 "HeatTS":                       heat_ts_used,
                                 "HeatTSIn":                     heat_ts_input,
                                 "EnergyTSStored":               energy_ts_stored,
-                                "HeatWasteEl":                  q_was_el.value,
-                                "HeatWasteFC":                  q_was_fc.value,
                                 "HeatAvgDemand":                heat_demand/n_consumers,
                                 "ElectricityForHeatDemand":     electricity_for_heat_demand,
                                 "ElectricityEndDemand":         electricity_end_demand,
@@ -707,7 +832,7 @@ def main():
                                 "EnergyBatteryStored":          energy_bat_stored,
                                 "H2Consumed":                   hydrogen_consumption,
                                 "H2Produced":                   hydrogen_production,
-                                "H2FCUsed":                     h2_fc.value,
+                                "H2FCUsed":                     hydrogen_consumption,
                                 "H2Stored":                     hydrogen_storage_level,
                                 "H2Imported":                   hydrogen_imported,
                                 "H2Exported":                   hydrogen_exported,
@@ -715,10 +840,9 @@ def main():
                                 "TCons2":                       temp_cons2,
                                 "TCons3":                       temp_cons3,
                                 "TConsAvg":                     (temp_cons1 + temp_cons2 + temp_cons3) / n_consumers,
-                                "TCons1Slack":                  T_cons1_slack.value,
-                                "TCons2Slack":                  T_cons2_slack.value,
-                                "TCons3Slack":                  T_cons3_slack.value,
-                                "HeatSlack":                    q_slack.value,
+                                # "TCons1Slack":                  T_cons1_slack.value,
+                                # "TCons2Slack":                  T_cons2_slack.value,
+                                # "TCons3Slack":                  T_cons3_slack.value,
                                 "RateElecFHeatDemand":          rate_elec_f_heat_demand,
                                 "RateElecEndDemand":            rate_elec_end_demand,
                                 "RateElecTotalDemand":          rate_elec_total_demand,
@@ -742,6 +866,17 @@ def main():
         #### Yearly results ####
 
         # Electricity results ---------------------
+        # Plot the electricity value
+        fig, ax = plt.subplots()
+        ax.plot(time_index, elec_value, label="Electricity Value", color='dodgerblue', linestyle='dashed')
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Value [CHF/kWh]")
+        ax.set_title("Electricity Value")
+        ax.legend()
+        if save_images:
+            plt.savefig(f'{folder_path}/electricity_value_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
+
+
         # Plot the electricity total demand
         fig, ax = plt.subplots()
         ax.plot(time_index, electricity_for_heat_demand, label="Electricity for heat", color='indianred')
@@ -925,7 +1060,7 @@ def main():
         # Plot the heat value
         fig, ax = plt.subplots()
         ax.plot(time_index, heat_value, label="Heat value", color = 'red', linestyle='dashed')
-        ax.set_xlabel("Time [h]")
+        ax.set_xlabel("Date")
         ax.set_ylabel("Heat Value [CHF/kWh]")
         ax.set_title("Heat Value")
         ax.legend()
@@ -948,28 +1083,28 @@ def main():
             # save figure
             plt.savefig(f'{folder_path}/heat_demand_value_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
 
-        # Plotting heat dumped slack
-        fig, ax = plt.subplots()
-        ax.plot(time_index, q_slack.value, label="Heat Dumped Slack [kW]")
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Heat [kW]")
-        ax.set_title("Heat Dumped Slack")
-        ax.legend()
-        if save_images:
-            plt.savefig(f'{folder_path}/heat_dumped_slack_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
-
         # Plotting all heat wasted and heat dumped slack in cumulative plot
         cum_heat_waste_el = np.cumsum(heat_waste_el)
         cum_heat_waste_fc = np.cumsum(heat_waste_fc)
-        cum_heat_slack = np.cumsum(q_slack.value)
         fig, ax = plt.subplots()
-        ax.stackplot(time_index, cum_heat_waste_el, cum_heat_waste_fc, cum_heat_slack, labels=["Waste Electrolyser", "Waste Fuel Cell", "Dumped Slack"], colors=['royalblue', 'orangered', 'darkkhaki'])
+        ax.stackplot(time_index, cum_heat_waste_el, cum_heat_waste_fc, labels=["Waste Electrolyser", "Waste Fuel Cell"], colors=['royalblue', 'orangered'])
         ax.set_xlabel("Date")
         ax.set_ylabel("Heat [kWh]")
-        ax.set_title("Cumulative Heat Wasted and Dumped Slack")
+        ax.set_title("Cumulative Heat Wasted")
         ax.legend()
         if save_images:
-            plt.savefig(f'{folder_path}/heat_wasted_slack_stacked_cumulative_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
+            plt.savefig(f'{folder_path}/heat_wasted_stacked_cumulative_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
+
+        # Plot the net thermal energy storage
+        fig, ax = plt.subplots()
+        ax.plot(time_index, energy_ts_stored, label="Thermal Storage", color='darkkhaki')
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Energy [kWh]")
+        ax.set_title("Thermal Energy Storage")
+        ax.legend()
+        if save_images:
+            # save figure
+            plt.savefig(f'{folder_path}/thermal_storage_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
 
         # Hydrogen results ---------------------
         # Plot the hydrogen storage
@@ -1035,18 +1170,18 @@ def main():
             # save figure
             plt.savefig(f'{folder_path}/consumer_temperature_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
 
-        # Plot the excess temperature
-        fig, ax = plt.subplots()
-        ax.plot(time_index, T_cons1_slack.value, label="Consumer 1", color='chocolate')
-        ax.plot(time_index, T_cons2_slack.value, label="Consumer 2", color='slategrey')
-        ax.plot(time_index, T_cons3_slack.value, label="Consumer 3", color='darkseagreen')
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Temperature [°C]")
-        ax.set_title("Excess Temperature")
-        ax.legend()
-        if save_images:
-            # save figure
-            plt.savefig(f'{folder_path}/excess_temperature_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
+        # # Plot the excess temperature
+        # fig, ax = plt.subplots()
+        # ax.plot(time_index, T_cons1_slack.value, label="Consumer 1", color='chocolate')
+        # ax.plot(time_index, T_cons2_slack.value, label="Consumer 2", color='slategrey')
+        # ax.plot(time_index, T_cons3_slack.value, label="Consumer 3", color='darkseagreen')
+        # ax.set_xlabel("Date")
+        # ax.set_ylabel("Temperature [°C]")
+        # ax.set_title("Excess Temperature")
+        # ax.legend()
+        # if save_images:
+        #     # save figure
+        #     plt.savefig(f'{folder_path}/excess_temperature_year_{name_version}.pdf', format="pdf", bbox_inches="tight")
 
         # Combined plots ---------------------
         # Plot the electricity price and heat value
@@ -1582,7 +1717,10 @@ def main():
 
         if plot_results:
             plt.show()
+        
 
 
 if __name__ == "__main__":
     main()  # Run the main function
+
+    

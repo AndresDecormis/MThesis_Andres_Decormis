@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from parametersv1 import *
+from Archive.parametersv1 import *
 import additional_functions as af
 import os
 
@@ -10,12 +10,14 @@ import os
 # Configuration of this run
 # ------------------------------
 af.configure_sns_plots(style='fancy')
-name_version = 'centralisedv8-HWTS'                # TODO Name of the version of the results
+# ------------------------------------------------------------------------------------------
+name_version = 'distributed-test-comparison-07sep'                # TODO Name of the version of the results
+# ------------------------------------------------------------------------------------------
 # Folders to process
-folders_to_process =   ['results/centralisedv8-iwb_power_small-Medium_TI-All_SC-Applied_EC-False_PV-False_BAT-True_TS-Medium_TF-2_PWA',
-                        'results/centralisedv8-iwb_power_small-Medium_TI-All_SC-Applied_EC-False_PV-False_BAT-False_TS-Medium_TF-2_PWA']     # TODO: Folders to process      
-label_folders = ['IWB - With HWTS',
-                 'IWB - No HWTS']                         # TODO: Label of the folders
+folders_to_process =   ['results/distributedv8-iwb_power_small-Medium_TI-True_EC-True_PV-True_BES-True_TES-True_EL-True_FC-Medium_TF-True_H2-current_H2Price-3_PWA_07sep/rho_0_05U0_05',
+                        'results/centralisedv8-iwb_power_small-Medium_TI-Medium_TF-True_EC-True_PV-True_BES-True_TES-True_EL-True_FC-True_H2-current_H2Price-3_PWA_07sep']     # TODO: Folders to process      
+label_folders = ['distributed',
+                 'centralised']                         # TODO: Label of the folders (in order)
 plot_images             = False                             # Plot images in the console
 plot_global_images      = False                             # Plot global images in the console
 save_images             = True                              # Save images in the results folder
@@ -254,6 +256,23 @@ for folder in folders_to_process:
     ax.set_ylabel("Heat generation [kW]")
     if save_images:
         plt.savefig(f"{subfolder_name}/scatter_electrolyser_heat_el.pdf", format="pdf", bbox_inches="tight")
+
+
+    # Scatter plot of total heat generated and load of electrolyser
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=time_data, x="LoadElectrolyser", y="HeatElGen", alpha=0.5, color="royalblue")
+    ax.set_xlabel("Electrolyser load [kW]")
+    ax.set_ylabel("Total heat generation [kW]")
+    if save_images:
+        plt.savefig(f"{subfolder_name}/scatter_electrolyser_heat_gen_el.pdf", format="pdf", bbox_inches="tight")# Scatter plot of total heat generated and electricity used by electrolyser
+    
+    # Scatter plot of total heat generated and hydrogen used by fuel cell
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=time_data, x="H2FCUsed", y="HeatFCGen", alpha=0.5, color="orangered")
+    ax.set_xlabel("Hydrogen used [kg/h]")
+    ax.set_ylabel("Total heat generation [kW]")
+    if save_images:
+        plt.savefig(f"{subfolder_name}/scatter_hydrogen_heat_gen_fc.pdf", format="pdf", bbox_inches="tight")
 
     if plot_images:
         plt.show()
