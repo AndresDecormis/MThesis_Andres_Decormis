@@ -16,8 +16,8 @@ GAMMA                   = 1.4               # Specific heat ratio for hydrogen [
 spot_plus_tariff_1      = 0.13              # T&D addition for spot-based tariff [CHF/kWh] -- https://www.statista.com/statistics/1278749/electricity-price-breakdown-switzerland/
 
 # Maximum electricity import/export per hour
-p_imp_max               = 23                # Maximum electricity import capacity per timestep [kWh]
-p_exp_max               = 23                # Maximum electricity export capacity per timestep [kWh]
+p_imp_max               = 23                # Maximum electricity import capacity  [kW]
+p_exp_max               = 23                # Maximum electricity export capacity  [kW]
 
 # Hydrogen import/export per hour
 h2_imp_max_val          = 10                # Maximum hydrogen import capacity per timestep [kg]
@@ -26,7 +26,7 @@ h2_exp_max_val          = 10                # Maximum hydrogen export capacity p
 # ----------------- Define modelling parameters -----------------
 # Heat pump parameters                      # Source: T. Marti, M. Sulzer, ..., “Energieversorgung der schweiz bis 2050 zusammenfassung von ergebnissen und grundlagen,” 12 2022.
 COP_hp              = 3.85                  # Coefficient of performance of heat pump [-] 
-q_hp_max            = 7.5                # Maximum heat pump capacity [kW (heat)] 7.5 kW normal
+q_hp_max            = 15                # Maximum heat pump capacity [kW (heat)] 7.5 kW normal
 
 # Thermal energy storage                # Source: T. Marti, M. Sulzer, ..., “Energieversorgung der schweiz bis 2050 zusammenfassung von ergebnissen und grundlagen,” 12 2022.
 volume_tank         = 0.5               # Volume of the buffer tank [m^3] = 500 litres
@@ -54,7 +54,6 @@ def electrolyser_function(x):
 eff_nom_el  = electrolyser_function(1) # Electrolyser nominal efficiency, at full load [-]
 eff_el_th   = 0.95              # Electrolyser thermal efficiency [-] from total heat released what fraction is recoverable
 h2_prod_max_val= l_el_max_val * eff_nom_el/ (HHV_H2) # Maximum hydrogen output capacity [kg/h] - https://sweet-cross.ch/data/energy-tech-parameters/2024-02-27/
-
 
 # Fuel cell                                 # Source: T. Marti, M. Sulzer, ..., “Energieversorgung der schweiz bis 2050 zusammenfassung von ergebnissen und grundlagen,” 12 2022.
 def fuel_cell_function(x):
@@ -110,25 +109,25 @@ e_bat_max    = 0.95      # Maximum battery capacity [%ofkWh]
 self_dis_bat = 0.00054   # Self-discharge rate of battery [%ofkWh/h]
 
 # PV parameters
-pv_area      = 30        # Area of the PV panels [m^2]
+pv_area      = 30       # Area of the PV panels [m^2] standard: 30m^2
 pv_eff       = 0.17      # Efficiency of the PV panels [-]
 
 # ----------------- Define consumer parameters -----------------
 # Yearly electricity end-demands
-lighting_yearly_demand           = 1000      # Total lighting demand [kWh]
-elec_appliances_yearly_demand    = 4000      # Total electric appliances demand [kWh]
+lighting_yearly_demand           = 500      # Total lighting demand [kWh]
+elec_appliances_yearly_demand    = 4500      # Total electric appliances demand [kWh]
 
 # Heat demand
 # Characteristics of the consumers
-area_irradiance         = 40    # [m2] rooftop area of each consumer
-heat_input_conversion   = 0.45  # Qgain/Qsolar - Conversion factor from solar irradiance to heat input
+area_irradiance         = 40    # [m2] rooftop area of each consumer standard: 40m2
+heat_input_conversion   = 0.04  # Qgain/Qsolar - Conversion factor from solar irradiance to heat input
 
 # Consumers thermal inertia
-R_cons_medium = 3.6         # Medium thermal resistance of consumer [°C/kW] - matches the actual energy demand of the nanoverbund pilot case
+R_cons_medium = 5.6        # Medium thermal resistance of consumer [°C/kW] - matches the actual energy demand of the nanoverbund pilot case
 C_cons_medium = 14.71       # Medium thermal capacitance of consumer [kWh/°C] - bernardino
-R_cons_high   = 5.4         # High thermal resistance of consumer [°C/kW] - 50% more
+R_cons_high   = 7         # High thermal resistance of consumer [°C/kW] - 50% more
 C_cons_high   = 14.71       # High thermal capacitance of consumer [kWh/°C] - 
-R_cons_low    = 1.8         # Low thermal resistance of consumer [°C/kW] - 50% less
+R_cons_low    = 4         # Low thermal resistance of consumer [°C/kW] - 50% less
 C_cons_low    = 14.71       # Low thermal capacitance of consumer [kWh/°C] - 
 
 # OLD: Consumers thermal inertia
@@ -141,8 +140,8 @@ C_cons_low    = 14.71       # Low thermal capacitance of consumer [kWh/°C] -
 
 
 # Temperature set points   - Source: Indoor environmental input parameters for design and assessment of energy performance of buildings addressing indoor air quality, thermal environment, lighting and acoustics. ICS 91.140.01
-T_cons_max_low  = 22.5      # Maximum temperature set point for low temperature flexibility consumer [°C]
-T_cons_min_low  = 20        # Minimum temperature set point for low temperature flexibility consumer [°C]
+T_cons_max_low  = 20.4      # Maximum temperature set point for low temperature flexibility consumer [°C]
+T_cons_min_low  = 20.3        # Minimum temperature set point for low temperature flexibility consumer [°C]
 T_cons_max_med  = 25        # Maximum temperature set point for medium temperature flexibility consumer [°C]
 T_cons_min_med  = 20        # Minimum temperature set point for medium temperature flexibility consumer [°C]
 T_cons_max_high = 25        # Maximum temperature set point for high temperature flexibility consumer [°C]

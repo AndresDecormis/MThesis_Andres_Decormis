@@ -1,0 +1,83 @@
+{
+  "title": "Database for Techno-Economic Parameters of Energy Technologies",
+  "description": "The library is organized into three distinct technology silos: thermal, electrical, and gas. An introductory file is provided to assist users in navigating the different Excel files.",
+  "version": "2024-02-27",
+  "last_updated": "2024-02-27",
+  "category": [
+    "Technology"
+     ],
+  "collection_method": "Data collection from the literature and demonstrators",
+  "file_location": "cross",
+  "doi": "",
+  "licenses": [
+    {
+      "name": "cc-by-4.0",
+      "title": "Open Data Commons Attribution License",
+      "path": "https://opendatacommons.org/licenses/by/1.0/"
+    }
+  ],
+  "institution": "Empa",
+  "spatial": {
+    "location": "Switzerland",
+    "resolution": "Country"
+  },
+  "temporal": {
+    "start": "2023",
+    "resolution": ""
+  },
+  "contributors": [{"last-name": "Humbert",
+                  "name": "Gabriele",
+                  "email": "Gabriele.Humbert@empa.ch",
+                "affiliation":"Empa"},
+                {"last-name": "Cai",
+                  "name": "Hanmin", 
+                  "email": "Hanmin.Cai@empa.ch",
+                  "affiliation":"Empa"},
+                {"last-name": "Peter",
+                  "name": "Christian", 
+                  "email": "christian.peter@psi.ch",
+                  "affiliation":"PSI"},
+                {"last-name": "Jacobs",
+                  "name": "Matthieu Benoit C.", 
+                  "email": "matthieu.jacobs@epfl.ch",
+                  "affiliation":"EPFL"},
+                {"last-name": "Lucas",
+                  "name": "Edward James", 
+                  "email": "edward.lucas@hslu.ch",
+                  "affiliation":"HSLU"},
+                {"last-name": "Heer",
+                  "name": "Philipp", 
+                  "email": "Philipp.Heer@empa.ch",
+                  "affiliation":"Empa"}  
+                  ],
+  "sources": [
+    {
+      "name": "Full list of references in the Excel files."
+    },
+    {
+      "name": "The database was generated thanks to financial support from the Swiss Federal Office of Energy (SFOE) for the project Sweet PATHFNDR."
+    }
+  ],
+  "resources": [
+    {
+      "name": "0_Introduction_ListTechnologies_CROSSdat_V1.xlsx",
+      "path": "0_Introduction_ListTechnologies_CROSSdat_V1.xlsx",
+      "mediatype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
+    {
+      "name": "ElectricalSilo_CROSSdat_V1.xlsx",
+      "path": "ElectricalSilo_CROSSdat_V1.xlsx",
+      "mediatype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
+    {
+      "name": "GasSilo_CROSSdat_V1.xlsx",
+      "path": "GasSilo_CROSSdat_V1.xlsx",
+      "mediatype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
+    {
+      "name": "ThermalSilo_CROSSdat_V1.xlsx",
+      "path": "ThermalSilo_CROSSdat_V1.xlsx",
+      "mediatype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    }
+  ]
+}
