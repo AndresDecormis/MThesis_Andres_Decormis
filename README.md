@@ -17,7 +17,7 @@ The repository containing this README file contains the following documents (wit
 		Various helpful functions that perform different tasks, for example: retrieve data from csv files into DataFrames or arrays,  assign values based on run configurations, configure plot style, etc.
 - parameters.py:
 		Contains all the technoeconomic parameters and boundary condition values used for the optimisation runs.
-- MThesis_Decormis.pdf:
+- MScThesis_Final_Report_Decormis_Andres.pdf:
 		The final report from this master thesis.
 		
 This repository also contains the following folders:
